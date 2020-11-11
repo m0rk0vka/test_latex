@@ -1,0 +1,517 @@
+\documentclass[a4paper,12pt,titlepage]{article}
+
+\usepackage[T1,T2A]{fontenc}     % форматы шрифтов
+\usepackage[utf8x]{inputenc}     % кодировка символов, используемая в данном файле
+\usepackage[russian]{babel}      % пакет русификации
+\usepackage{tikz}                % для создания иллюстраций
+\usepackage{pgfplots}            % для вывода графиков функций
+\usepackage{geometry}		     % для настройки размера полей
+\usepackage{indentfirst}         % для отступа в первом абзаце секции
+\usepackage{listings}
+\usepackage{amsmath}
+\lstset{
+basicstyle=\footnotesize,        % the size of the fonts that are used for the code
+  breakatwhitespace=false,         % sets if automatic breaks should only happen at whitespace
+  breaklines=false,                 % sets automatic line breaking
+  captionpos=b,                    % sets the caption-position to bottom
+  commentstyle=\color{green},    % comment style
+  extendedchars=true,              % lets you use non-ASCII characters; for 8-bits encodings only, does not work with UTF-8
+  keepspaces=true,                 % keeps spaces in text, useful for keeping indentation of code (possibly needs columns=flexible)
+  keywordstyle=\color{blue},       % keyword style
+  language=[95]Fortran,                 % the language of the code
+  numbers=left,                    % where to put the line-numbers; possible values are (none, left, right)
+  numbersep=5pt,                   % how far the line-numbers are from the code
+  numberstyle=\tiny\color{gray}, % the style that is used for the line-numbers
+  rulecolor=\color{black},         % if not set, the frame-color may be changed on line-breaks within not-black text (e.g. comments (green here))
+  showspaces=false,                % show spaces everywhere adding particular underscores; it overrides 'showstringspaces'
+  showstringspaces=false,          % underline spaces within strings only
+  showtabs=false,                  % show tabs within strings adding particular underscores
+  stepnumber=1,                    % the step between two line-numbers. If it's 1, each line will be numbered
+  stringstyle=\color{blue},       % string literal style
+  tabsize=4,                       % sets default tabsize to 2 spaces
+  title=\lstname                   % show the filename of files
+}
+% выбираем размер листа А4, все поля ставим по 3см
+\geometry{a4paper,left=30mm,top=30mm,bottom=30mm,right=30mm}
+
+\setcounter{secnumdepth}{0}      % отключаем нумерацию секций
+
+\usepgfplotslibrary{fillbetween} % для изображения областей на графиках
+
+\begin{document}
+% Титульный лист
+\begin{titlepage}
+    \begin{center}
+	{\small \sc Московский государственный университет \\имени М.~В.~Ломоносова\\
+	Факультет вычислительной математики и кибернетики\\}
+	\vfill
+	{\Large \sc Отчет по заданию №2}\\
+	~\\
+	{\large \bf <<Численное решение третьей краевой задачи для стационарного уравнения теплопроводности с непрерывными коэффицентами.\\
+	    Метод прогонки.>>}\\ 
+	~\\
+    \end{center}
+    \begin{flushright}
+	\vfill {Выполнил:\\
+	студент 305 группы\\
+	Татосьян~В.~Г.\\
+	~\\
+	Преподаватель:\\
+	Есикова~Н.~Б.}
+    \end{flushright}
+    \begin{center}
+	\vfill
+	{\small Москва\ 2020}
+    \end{center}
+\end{titlepage}
+
+% Автоматически генерируем оглавление на отдельной странице
+\tableofcontents
+\newpage
+
+\section{Постановка задачи}
+
+\begin{itemize}
+\item Найти решение обыкновенного дифференциального уравнения второго порядка с непрерывными коэффицентами, с двумя краевыми условиями третьего рода с точностью $\varepsilon = 0.01$: \newline
+$\frac{d}{dx}[k(x)\frac{du}{dx}]-q(x)u=-f(x); 0 < x < 1; k(x) \geq c_1 > 0; q(x) \geq 0$ \newline
+Краевые условия:\newline
+$k(0)u'(0)=\beta_1u(0)+\mu_1\newline -k(1)u'(1)=\beta_2u(1)+\mu_2 $ \newline
+где $\beta_1, \beta_2 \geq 0; \beta_1 + \beta_2 > 0; q(x), k(x), f(x)-$непрерывные функции
+\item Для моего варианта: \newline
+$k(x)=x^2+1; q(x)=x; f(x)=e^{-x};$\newline
+$\beta_1 = 0; \beta_2 = 1; \mu_1=0; \mu_2 = 0; \varepsilon = 0.01$\newline
+\item Реализация конечно-разностной схемы второго порядка апроксимации для решения данной задачи.
+\item Значение шага $h$ для разностной схемы выбрать изходя из требований к точности решения. Решение разностной задачи искать методом прогонки.
+\item Для оценки погрешности решения краевой задачи воспользоваться правилом Рунге.
+\end{itemize}
+
+\newpage
+
+\section{Аналитическое решение задачи}
+
+Решаем модельную задачу: $\bar k = k(0.5); \bar q = q(0.5); \bar f = f(0.5)$ \newline
+Решение $u(x)$ обыкновенного диффернциального уравнения второго порядка выглядит следующим образом: \newline
+$u(x)=C_1e^{\sqrt{\frac{q}{k}}x}+C_2e^{-\sqrt{\frac{q}{k}}x}+\frac{f}{q}$\newline
+Вычисляя производную: \newline
+$u(x)=C_1\frac{q}{k}e^{\sqrt{\frac{q}{k}}x}-C_2\frac{q}{k}e^{-\sqrt{\frac{q}{k}}x}$\newline
+И подставляя краевые условия:\newline
+$ku'(0)=0$\newline
+$-ku'(1)=u(1)$\newline
+Получим:\newline
+$C_1=C_2=C=\frac{f}{q((\sqrt{kq}-1)e^{-\sqrt{\frac{q}{k}}}-(\sqrt{kq}+1)e^{\sqrt{\frac{q}{k}}})}$\newline
+
+
+\section{Численное решение задачи}
+
+Для численного решения задачи введем равномерную сетку $\omega$. \newline
+$\omega = \{x_i = ih |\, i=[0,N], h = \frac{1}{N} \}$\newline
+Заменим производную второго порядка конечно-разностным отношением вида: \newline
+$\frac{d}{dx}(k(x)\frac{du}{dx}) = \frac{k(\frac{x_{i+1} - x{i}}{h}) - k(\frac{x_{i} - x{i-1}}{h})}{h}$\newline
+Получим уравнение приближающее дифференциальное уравнение в узле:\newline
+$k(x)\frac{y(x_{i+1})-2y(x_{i})+y(x_{i-1})}{h^2} - q(x)y(x_i)=-f(x)$ при $x \in (0, 1)$ \newline
+Далее решаем систему линейных уравнений методом прогонки. \newline
+
+\newpage
+\section{Пример работы программы}
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+$i$ & $x_i$ & $u(x_i)$ & $y(x_i)$ & $delta$ \\
+\hline
+0&0&0.516205&0.516205&9.53146e-08\\
+10&0.05&0.515857&0.515857&9.56527e-08\\
+20&0.1&0.514811&0.514811&9.66675e-08\\
+30&0.15&0.513067&0.513067&9.8361e-08\\
+40&0.2&0.510623&0.510623&1.00736e-07\\
+50&0.25&0.507476&0.507476&1.03798e-07\\
+60&0.3&0.503624&0.503624&1.07551e-07\\
+70&0.35&0.499062&0.499062&1.12003e-07\\
+80&0.4&0.493786&0.493787&1.17163e-07\\
+90&0.45&0.487791&0.487791&1.23039e-07\\
+100&0.5&0.481071&0.481071&1.29642e-07\\
+110&0.55&0.473618&0.473619&1.36986e-07\\
+120&0.6&0.465426&0.465427&1.45082e-07\\
+130&0.65&0.456487&0.456487&1.53947e-07\\
+140&0.7&0.44679&0.446791&1.63596e-07\\
+150&0.75&0.436328&0.436328&1.74048e-07\\
+160&0.8&0.425088&0.425088&1.85321e-07\\
+170&0.85&0.413061&0.413061&1.97436e-07\\
+180&0.9&0.400233&0.400233&2.10416e-07\\
+190&0.95&0.386593&0.386593&2.24283e-07\\
+200&1&0.372126&0.372126&2.39063e-07\\
+\hline
+\end{tabular}
+\caption{Значения аналитического решения $u(x)$ и численного $y(x)$ для модельной задачи\newlineпри $N=100$}
+\label{table}
+\end{table}
+
+\newpage
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|c|c|c|}
+\hline
+$i$ & $x_i$ & $u(x_i)$ & $y(x_i)$ & $delta$ \\
+\hline
+0&0&0.516205&0.516205&9.56265e-10\\
+100&0.05&0.515857&0.515857&9.59655e-10\\
+200&0.1&0.514811&0.514811&9.69796e-10\\
+300&0.15&0.513067&0.513067&9.86705e-10\\
+400&0.2&0.510623&0.510623&1.0104e-09\\
+500&0.25&0.507476&0.507476&1.04094e-09\\
+600&0.3&0.503624&0.503624&1.07836e-09\\
+700&0.35&0.499062&0.499062&1.12278e-09\\
+800&0.4&0.493786&0.493786&1.17425e-09\\
+900&0.45&0.487791&0.487791&1.23292e-09\\
+1000&0.5&0.481071&0.481071&1.29889e-09\\
+1100&0.55&0.473618&0.473618&1.37222e-09\\
+1200&0.6&0.465426&0.465426&1.45305e-09\\
+1300&0.65&0.456487&0.456487&1.54154e-09\\
+1400&0.7&0.44679&0.44679&1.63783e-09\\
+1500&0.75&0.436328&0.436328&1.74214e-09\\
+1600&0.8&0.425088&0.425088&1.8547e-09\\
+1700&0.85&0.413061&0.413061&1.97572e-09\\
+1800&0.9&0.400233&0.400233&2.1054e-09\\
+1900&0.95&0.386593&0.386593&2.244e-09\\
+2000&1&0.372126&0.372126&2.39174e-09\\
+1&1&1&0\\
+\hline
+\end{tabular}
+\caption{Значения аналитического решения $u(x)$ и численного $y(x)$ для модельной задачи\newlineпри $N=1000$}
+\label{table}
+\end{table}
+
+\newpage
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|c|}
+\hline
+$i$ & $x_i$ & $y(x_i)$ \\
+\hline
+0&0&0.600579\\
+10&0.05&0.599363\\
+20&0.1&0.595864\\
+30&0.15&0.590319\\
+40&0.2&0.582982\\
+50&0.25&0.574114\\
+60&0.3&0.563975\\
+70&0.35&0.552818\\
+80&0.4&0.540882\\
+90&0.45&0.528388\\
+100&0.5&0.515537\\
+110&0.55&0.502505\\
+120&0.6&0.489446\\
+130&0.65&0.476491\\
+140&0.7&0.463748\\
+150&0.75&0.451308\\
+160&0.8&0.439242\\
+170&0.85&0.427603\\
+180&0.9&0.416433\\
+190&0.95&0.405762\\
+200&1&0.395609\\
+\hline
+\end{tabular}
+\caption{Значения численного $y(x)$ для общей задачи\newlineпри $N=100$}
+\label{table}
+\end{table}
+
+\newpage
+
+\begin{table}[h]
+\centering
+\begin{tabular}{|c|c|c|}
+\hline
+$i$ & $x_i$ & $y(x_i)$ \\
+\hline
+0&0&0.600574\\
+100&0.05&0.599359\\
+200&0.1&0.59586\\
+300&0.15&0.590316\\
+400&0.2&0.582979\\
+500&0.25&0.574111\\
+600&0.3&0.563972\\
+700&0.35&0.552815\\
+800&0.4&0.540879\\
+900&0.45&0.528386\\
+1000&0.5&0.515535\\
+1100&0.55&0.502503\\
+1200&0.6&0.489444\\
+1300&0.65&0.476489\\
+1400&0.7&0.463747\\
+1500&0.75&0.451307\\
+1600&0.8&0.43924\\
+1700&0.85&0.427601\\
+1800&0.9&0.416432\\
+1900&0.95&0.405761\\
+2000&1&0.395608\\
+\hline
+\end{tabular}
+\caption{Значения численного $y(x)$ для общей задачи\newlineпри $N=1000$}
+\label{table}
+\end{table}
+
+
+\newpage
+\section{Исходный код}
+\begin{lstlisting}[language=C++, caption={Исходный код программы}]
+#include <iostream>
+#include <cmath>
+
+
+double estimationError (double * u, double * y, int N);
+void realSolv(double * u, int N, double x0);
+void sweepMethod(double * y, int N, double x0);
+void generalProblem(int N);
+void modelProblem(int N);
+
+
+int main() {
+    int N, model;
+
+    std::cout << "Hello!" << std::endl;
+    std::cout << "Please, choose which problem we will solve: model - 0, general - 1.\nEnter a number: ";
+    std::cin  >> model;
+    std::cout << "Please, enter N: ";
+    std::cin  >> N;
+
+    if (model == 0) {
+        modelProblem(N);
+    } else if (model == 1) {
+        generalProblem(N);
+    } else {
+        std::cout << "When entering the first digit, choose between 0 and 1!\n 
+            Please, restart program!" << std::endl;
+    }
+    
+    return 0;
+}
+
+
+double estimationError(double * y2, double * y, int N) {
+    double res;
+
+    N = N / 2;
+
+    for (int i = 0; i < N + 1; i++) {
+        if (res < abs(y[2 * i] - y2[i]) / 3) {
+            res = abs(y[2 * i] - y2[i]) / 3;
+        }
+    }
+
+    return res;
+}
+
+
+void realSolv(double * u, int N, double x0) {
+    double * x;
+
+    double h = 1.0 / N;
+    
+    double k = x0 * x0 + 1;
+    double q = x0;
+    double f = exp(-x0); 
+
+    double C = f / (q * ((sqrt(k * q) - 1) * exp(-sqrt(q / k)) 
+        - (sqrt(k * q) + 1) * exp(sqrt(q / k))));
+    x = new double [N + 1];
+
+    for (int i = 0; i < N + 1; i++) {
+        x[i] = i * h;
+    }
+
+    for (int i = 0; i < N + 1; i++) {
+        u[i] = C * (exp(sqrt(q / k) * x[i]) + exp(-sqrt(q / k) * x[i])) + f / q;
+    }
+
+    delete [] x;
+}
+
+
+void sweepMethod(double * y, int N, double x0) {
+    double * k;
+    double * q;
+    double * fi;
+    double * x;
+    
+    double * alf;
+    double * bet;
+    double * a;
+    double * b;
+    double * c;
+
+    double h = 1.0 / N;
+
+    k = new double [N + 1];
+    q = new double [N + 1];
+    fi = new double [N + 1];
+    x = new double [N + 1];
+
+    alf = new double [N + 2];
+    bet = new double [N + 2];
+    a = new double [N + 2];
+    b = new double [N + 2];
+    c = new double [N + 2];
+
+    for (int i = 0; i < N + 1; i++) {
+        x[i] = i * h;
+
+        if (x0 == 0.0) {
+            k[i] = x[i] * x[i] + 1;
+            q[i] = x[i];
+            fi[i] = exp(-x[i]);
+        } else {
+            k[i] = x0 * x0 + 1;
+            q[i] = x0;
+            fi[i] = exp(-x0);
+        }
+    }
+
+    for (int i = 1; i < N; i++) {
+        a[i] = 1 / (2 * h * h) * (k[i - 1] + k[i]);
+        b[i] = 1 / (2 * h * h) * (k[i] + k[i + 1]);
+        c[i] = q[i] + 1 / (2 * h * h) * (k[i - 1] + 2 * k[i] + k[i + 1]);
+    }
+
+    alf[1] = (k[0] + k[1]) / (k[0] + k[1] + h * h * q[0]);
+    bet[1] = h * h * fi[0] / (k[0] + k[1] + h * h * q[0]);
+
+    for (int i = 1; i < N; i++) {
+        alf[i + 1] = b[i] / (c[i] - a[i] * alf[i]);
+        bet[i + 1] = (fi[i] + a[i] * bet[i]) / (c[i] - a[i] * alf[i]); 
+    }
+
+    double mu2 = 1 + 0.5 * h * q[N] + (k[N] + k[N - 1]) / (2 * h);
+    double bet2 = (k[N] + k[N - 1]) / (2 * h * mu2);
+
+    y[N] = (0.5 * h * fi[N] / mu2 + bet2 * bet[N]) / (1 - alf[N] * bet2);
+
+    for (int i = N - 1; i >= 0; i--) {
+        y[i] = alf[i + 1] * y[i + 1] + bet[i + 1];
+    }
+
+    delete [] k;
+    delete [] q;
+    delete [] fi;
+    delete [] x;
+
+    delete [] alf;
+    delete [] bet;
+    delete [] a;
+    delete [] b;
+    delete [] c;
+}
+
+
+void modelProblem(int N) {
+    double * u;
+    double * y;
+    double * y2;
+
+    int j = 0;
+
+    double eps = 0.01, x0 = 0.5;
+
+    while (N < 100000) {
+        u = new double [N + 1];
+        y = new double [N + 1];
+
+        realSolv(u, N, x0);
+        sweepMethod(y, N, x0);
+
+        if (j == 1) {
+            if (estimationError(y2, y, N) < eps) {
+                for (int i = 0; i < N + 1; i += 50) {
+                    std::cout << "x[" << i << "] = " << i * 1.0 / N << " , u[" << i << "] = " << u[i] << " , y[" <<
+                        i << "] = " << y[i] << " , delta = " << abs(u[i] - y[i]) << std::endl;
+                }
+
+                delete [] u;
+                delete [] y;
+                delete [] y2;
+
+                break;
+            } else {
+                delete [] y2;
+
+                y2 = new double [N + 1];
+
+                for (int i = 0; i < N + 1; i++) {
+                    y2[i] = y[i];
+                }
+
+                N = 2 * N;
+            }
+        } else {
+            y2 = new double [N + 1];
+
+            for (int i = 0; i < N + 1; i++) {
+                y2[i] = y[i];
+            }
+
+            N = 2 * N;
+        }
+
+        delete [] u;
+        delete [] y;
+
+        j = 1;
+    }
+}
+
+
+void generalProblem(int N) {
+    double * u;
+    double * y;
+    double * y2;
+
+    int j = 0;
+
+    double eps = 0.01, x0 = 0.0;
+
+    while (N < 100000) {
+        y = new double [N + 1];
+
+        sweepMethod(y, N, x0);
+
+        if (j == 1) {
+            if (estimationError(y2, y, N) < eps) {
+                for (int i = 0; i < N + 1; i += 50) {
+                   std::cout << "x[" << i << "] = " << i * 1.0 / N << " , y[" <<
+                        i << "] = " << y[i] << std::endl;
+                }
+
+                delete [] y;
+                delete [] y2;
+
+                break;
+            } else {
+                delete [] y2;
+
+                y2 = new double [N + 1];
+
+                for (int i = 0; i < N + 1; i++) {
+                    y2[i] = y[i];
+                }
+
+                N = 2 * N;
+            }
+        } else {
+            y2 = new double [N + 1];
+
+            for (int i = 0; i < N + 1; i++) {
+                y2[i] = y[i];
+            }
+
+            N = 2 * N;
+        }
+
+        delete [] y;
+
+        j = 1;
+    }
+}
+\end{lstlisting}
+\end{document}
